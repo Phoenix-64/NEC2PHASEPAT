@@ -1,5 +1,5 @@
 # A bridge between NEC and PHASEPAT32
-This program takes a NEC output file as input and produces the e and h field .dat files required by PHASEPAT32 and PHASEPAT  
+This program takes a NEC output file as input and produces the e and h field .dat files required by PHASEPAT32 and [PHASEPAT](http://www.w1ghz.org/10g/software.htm) writen by [W1GHZ](http://www.w1ghz.org/).  
 For the details behind the data look at [Theoretical_Details.md](Theoretical_Details.md)
 
 ## How to setup the NEC sim:
@@ -13,14 +13,18 @@ This can be done by RP cards, here with a step size of 1 degree:
 *A basic example can be found in the [example](example) folder*
 
 ## Usage of NEC2PHASEPAT:
-Complie [NEC2PHASEPAT.c](NEC2PHASEPAT.c) using `gcc`:
+Compile [NEC2PHASEPAT.c](NEC2PHASEPAT.c) using `gcc`:
 
     gcc .\NEC2PHASEPAT.c -o .\NEC2PHASEPAT.exe   
 
-And then either give the input file as a commandline argument:
+And then either give the input file as a command-line argument:
 
     .\NEC2PHASEPAT.exe NEC.out
 
 Or when quoted.
+
+The two programms can be nicely commbinded in one command-line:
+
+    .\NEC2PHASEPAT.exe NEC.out && .\PHASEPAT32.exe pars_e.dat pars_h.dat
 
 *The output file nemes are `pars_e.dat` and `pars_h.dat` and can not currently be changed*
