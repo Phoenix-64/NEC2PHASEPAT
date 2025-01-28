@@ -3,9 +3,10 @@ This program takes a NEC output file as input and produces the e and h field .da
 For the details behind the data look at [Theoretical_Details.md](Theoretical_Details.md)
 
 ## How to setup the NEC sim:
-It is important that the antenna be situated at the origin and that the main lobe point in the direction of the positive Z axis.  
-The pattern should contain the Phi angles 0 and 90 for Theta from 0 to 180 in any step size not smaller than 1 degree.  
-This can be done by RP cards, here with a step size of 1 degree:
+It is important that the antenna be situated at the origin and that the main lobe point in the direction of the positive Z axis.  
+Try to avoid cross polarization by aligning the radiation element to one of the axes, preferably the Y axis. 
+The pattern should contain the Phi angles 0 and 90 for Theta from 0 to 180 in any step size not smaller than 1 degree.  
+This can be done by RP cards, here with a step size of 1 degree:  
 
     RP	0	181	3	1500	0	0	1	45  
 
