@@ -6,15 +6,35 @@
 #define LINE_SIZE 1024
 
 // Function to normalize: shift by the negative max value
-void normalize(double *data, int size) {
-    double max_value = -INFINITY;
-    for (int i = 0; i < size; i++) {
-        if (data[i] > max_value) {
-            max_value = data[i];
+void convert(double *data_e, double *data_h, int size_e, int size_h) {
+    double max_value_e = -INFINITY;
+    double max_value_h = -INFINITY;
+    double* max_value;
+
+    for (int i = 0; i < size_e; i++) {
+        data_e[i] = 20 * log10f(data_e[i]);
+        if (data_e[i] > max_value_e) {
+            max_value_e = data_e[i];
         }
     }
-    for (int i = 0; i < size; i++) {
-        data[i] = -(data[i] - max_value); // Shift values by max
+    for (int i = 0; i < size_h; i++) {
+        data_h[i] = 20 * log10f(data_h[i]);
+        if (data_h[i] > max_value_h) {
+            max_value_h = data_h[i];
+        }
+    }
+
+
+    max_value = &max_value_e;
+    if (max_value_h > max_value_e) {
+        max_value = &max_value_h;
+    }
+
+    for (int i = 0; i < size_e; i++) {
+        data_e[i] = -(data_e[i] - *max_value); // Shift values by max
+    }
+    for (int i = 0; i < size_h; i++) {
+        data_h[i] = -(data_h[i] - *max_value); // Shift values by max
     }
 }
 
@@ -26,13 +46,14 @@ int main(int argc, char* argv[]) {
     } else {
         static char temp_file_name[255]; // Temporary buffer for user input
         printf("Enter file name: ");
-        scanf("%254s", temp_file_name); // Read input safely (limit size)
+        //scanf("%254s", temp_file_name); // Read input safely (limit size)
         file_name = temp_file_name;     // Point to the user-provided file name
     }
 
     // Try to open the file for reading
-    FILE *input = fopen(file_name, "r");
-    
+    //FILE *input = fopen(file_name, "r");
+    FILE *input = fopen("basic_radiator.out", "r");
+
     if (input == NULL) {
         perror("Error opening input file");
         return EXIT_FAILURE;
@@ -77,7 +98,7 @@ int main(int argc, char* argv[]) {
             double theta, phi, vert_gain, hor_gain, e_theta_phase, e_phi_phase;
 
             // Parse relevant data from the line (adjust column positions)
-            if (sscanf(line, " %lf %lf %lf %lf%*51c %lf %*11c %lf", &theta, &phi, &vert_gain, &hor_gain, &e_theta_phase, &e_phi_phase) == 6) {
+            if (sscanf(line, " %lf %lf%*55c %lf %lf %lf %lf", &theta, &phi, &vert_gain, &e_theta_phase, &hor_gain, &e_phi_phase) == 6) {
                 // Process for E file (phi == 90)
                 if ((int)phi == 90) {
                     theta_e[e_index] = theta;
@@ -100,8 +121,8 @@ int main(int argc, char* argv[]) {
     fclose(input);
 
     // Normalize the gain values
-    normalize(gain_e, e_index);
-    normalize(gain_h, h_index);
+    convert(gain_e, gain_h, e_index, h_index);
+
 
     // Write data to output files
     for (int i = 0; i < e_index; i++) {
