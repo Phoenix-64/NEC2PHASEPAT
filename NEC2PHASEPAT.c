@@ -46,13 +46,13 @@ int main(int argc, char* argv[]) {
     } else {
         static char temp_file_name[255]; // Temporary buffer for user input
         printf("Enter file name: ");
-        //scanf("%254s", temp_file_name); // Read input safely (limit size)
+        scanf("%254s", temp_file_name); // Read input safely (limit size)
         file_name = temp_file_name;     // Point to the user-provided file name
     }
 
     // Try to open the file for reading
-    //FILE *input = fopen(file_name, "r");
-    FILE *input = fopen("basic_radiator.out", "r");
+    FILE *input = fopen(file_name, "r");
+    //FILE *input = fopen("basic_radiator.out", "r");
 
     if (input == NULL) {
         perror("Error opening input file");
