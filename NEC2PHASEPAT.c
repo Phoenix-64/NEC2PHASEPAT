@@ -4,7 +4,8 @@
 #include <math.h>
 
 #define MAX_PATH_LENGTH 1024
-#define LINE_SIZE 4096
+#define LINE_SIZE 1024
+
 
 FILE* open_file(const char* filename, const char* mode) {
     FILE* file = fopen(filename, mode);
@@ -15,6 +16,16 @@ FILE* open_file(const char* filename, const char* mode) {
     }
     return file;
 }
+
+
+double sumArray(double *arr, int n) {
+    double sum = 0;
+    for (int i = 0; i < n; i++) {
+        sum += arr[i];
+    }
+    return sum;
+}
+
 
 // Function to extract directory path from a file path
 void get_directory_path(const char* full_path, char* dir_path) {
@@ -53,30 +64,33 @@ int count_angles(FILE* input) {
     return count;
 }
 
+
 // Function to normalize gain values
-void convert(double *data_e, double *data_h, int size_e, int size_h) {
-    double max_value_e = -INFINITY, max_value_h = -INFINITY;
+void convert(double *data_e, double *data_h, int size) {
+    double max_value = -INFINITY;
 
-    for (int i = 0; i < size_e; i++) {
+    for (int i = 0; i < size; i++) {
         data_e[i] = 20 * log10(data_e[i]);
-        if (data_e[i] > max_value_e) max_value_e = data_e[i];
-    }
-    for (int i = 0; i < size_h; i++) {
         data_h[i] = 20 * log10(data_h[i]);
-        if (data_h[i] > max_value_h) max_value_h = data_h[i];
+        if (data_h[i] > max_value) max_value = data_h[i];
+        if (data_e[i] > max_value) max_value = data_e[i];
     }
 
-    double max_value = (max_value_h > max_value_e) ? max_value_h : max_value_e;
-
-    for (int i = 0; i < size_e; i++) data_e[i] = max_value - data_e[i];
-    for (int i = 0; i < size_h; i++) data_h[i] = max_value - data_h[i];
+    for (int i = 0; i < size; i++) data_e[i] = max_value - data_e[i];
+    for (int i = 0; i < size; i++) data_h[i] = max_value - data_h[i];
 }
+
 
 int main(int argc, char* argv[]) {
     char file_path[MAX_PATH_LENGTH];
     char output_prefix[MAX_PATH_LENGTH] = "pars";  // Default output prefix
     char output_dir[MAX_PATH_LENGTH];
-
+    if (argc == 0) {
+        fprintf(stderr, "Error: Failed to provide Input file Name\n");
+        perror("Reason");
+        exit(EXIT_FAILURE);
+    }
+    //strcpy(file_path, ".\\example\\basic_radiator\\basic_radiator.out");
     if (argc > 1) {
         strncpy(file_path, argv[1], sizeof(file_path) - 1);
         file_path[sizeof(file_path) - 1] = '\0';
@@ -109,24 +123,24 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    double *theta_e = malloc(num_angles * sizeof(double));
+    double *theta_l = malloc(num_angles * sizeof(double));
+
     double *gain_e = malloc(num_angles * sizeof(double));
     double *phase_e = malloc(num_angles * sizeof(double));
 
-    double *theta_h = malloc(num_angles * sizeof(double));
     double *gain_h = malloc(num_angles * sizeof(double));
     double *phase_h = malloc(num_angles * sizeof(double));
 
-    if (!theta_e || !gain_e || !phase_e || !theta_h || !gain_h || !phase_h) {
+    if (!theta_l || !gain_e || !phase_e|| !gain_h || !phase_h) {
         fprintf(stderr, "Memory allocation failed.\n");
-        free(theta_e); free(gain_e); free(phase_e);
-        free(theta_h); free(gain_h); free(phase_h);
+        free(theta_l); free(gain_e); free(phase_e);
+        free(gain_h); free(phase_h);
         fclose(input); fclose(output_e); fclose(output_h);
         return EXIT_FAILURE;
     }
 
     char line[LINE_SIZE];
-    int in_radiation_section = 0, e_index = 0, h_index = 0;
+    int in_radiation_section = 0, index = 0;
 
     while (fgets(line, sizeof(line), input)) {
         if (!in_radiation_section && strstr(line, "- - - RADIATION PATTERNS - - -")) {
@@ -138,36 +152,49 @@ int main(int argc, char* argv[]) {
             double theta, phi, vert_gain, hor_gain, e_theta_phase, e_phi_phase;
             if (sscanf(line, " %lf %lf%*55c %lf %lf %lf %lf", 
                        &theta, &phi, &vert_gain, &e_theta_phase, &hor_gain, &e_phi_phase) == 6) {
-                if ((int)phi == 90 && e_index < num_angles) {
-                    theta_e[e_index] = theta;
-                    gain_e[e_index] = vert_gain;
-                    phase_e[e_index] = e_theta_phase;
-                    e_index++;
-                } else if ((int)phi == 0 && h_index < num_angles) {
-                    theta_h[h_index] = theta;
-                    gain_h[h_index] = hor_gain;
-                    phase_h[h_index] = e_phi_phase;
-                    h_index++;
-                }
+                if (((int)phi == 90 || (int)phi == 0) && index < num_angles) {
+                    theta_l[index] = theta;
+                    gain_e[index] = vert_gain;
+                    phase_e[index] = e_theta_phase;
+                    gain_h[index] = hor_gain;
+                    phase_h[index] = e_phi_phase;
+                    index++;
+                } 
             }
         }
     }
     fclose(input);
+    double sum_e = sumArray(gain_e, index / 2);
+    double sum_t = sumArray(gain_e, index);
+    convert(gain_e, gain_h, index);
 
-    convert(gain_e, gain_h, e_index, h_index);
 
-    for (int i = 0; i < e_index; i++) {
-        fprintf(output_e, "%lf %lf %lf\n", theta_e[i], gain_e[i], phase_e[i]);
+    // Chose the slice with hihger values in the E field for the E field file
+    if (sum_t - sum_e < sum_e) {
+        printf("The E field does not aling with the Y axis, to correct for that the fields have been switched");
+        for (int i = 0; i < index / 2; i++) {
+            fprintf(output_h, "%lf %lf %lf\n", theta_l[i], gain_e[i], phase_e[i]);
+        }
+        for (int i = index / 2; i < index; i++) {
+            fprintf(output_e, "%lf %lf %lf\n", theta_l[i], gain_h[i], phase_h[i]);
+        }
     }
-    for (int i = 0; i < h_index; i++) {
-        fprintf(output_h, "%lf %lf %lf\n", theta_h[i], gain_h[i], phase_h[i]);
+    else {
+        for (int i = 0; i < index / 2; i++) {
+            fprintf(output_h, "%lf %lf %lf\n", theta_l[i], gain_h[i], phase_h[i]);
+        }
+        for (int i = index / 2; i < index; i++) {
+            fprintf(output_e, "%lf %lf %lf\n", theta_l[i], gain_e[i], phase_e[i]);
+        }
     }
+
+
 
     fclose(output_e);
     fclose(output_h);
 
-    free(theta_e); free(gain_e); free(phase_e);
-    free(theta_h); free(gain_h); free(phase_h);
+    free(theta_l); free(gain_e); free(phase_e);
+    free(gain_h); free(phase_h);
 
     printf("Output files '%s' and '%s' created successfully.\n", output_e_file, output_h_file);
 

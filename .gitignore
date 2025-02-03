@@ -2,4 +2,6 @@ NEC2PHASEPAT.exe
 example/PHASEPAT32.exe
 PHASEPAT32.exe
 old.c
-.vscode/tasks.json
+.vscode/
+example/basic_radiator/pars_e.dat
+example/basic_radiator/pars_h.dat
