@@ -27,10 +27,10 @@ double sumArray(double *arr, int n) {
 }
 
 
-// Function to extract directory path from a file path
+// Extracts the directory path from a given file path
 void get_directory_path(const char* full_path, char* dir_path) {
-    strcpy(dir_path, full_path);
-    char* last_slash = strrchr(dir_path, '/');  // Unix/Linux/Mac
+    strncpy(dir_path, full_path, MAX_PATH_LENGTH);
+    char* last_slash = strrchr(dir_path, '/');  // Unix/Linux/macOS
     #ifdef _WIN32
         last_slash = strrchr(dir_path, '\\');  // Windows
     #endif
@@ -41,6 +41,21 @@ void get_directory_path(const char* full_path, char* dir_path) {
         strcpy(dir_path, "./");  // Default to current directory
     }
 }
+
+
+// Resolves a relative path into an absolute one
+void resolve_path(char* base_dir, char* relative_path, char* resolved_path) {
+    if (relative_path[0] == '/'  // Absolute path (Linux/macOS)
+        #ifdef _WIN32
+        || (relative_path[1] == ':' && relative_path[2] == '\\') // Absolute path (Windows)
+        #endif
+    ) {
+        strncpy(resolved_path, relative_path, MAX_PATH_LENGTH);
+    } else {
+        snprintf(resolved_path, MAX_PATH_LENGTH, "%s%s", base_dir, relative_path);
+    }
+}
+
 
 // Function to count angles dynamically
 int count_angles(FILE* input) {
@@ -82,37 +97,67 @@ void convert(double *data_e, double *data_h, int size) {
 
 
 int main(int argc, char* argv[]) {
-    char file_path[MAX_PATH_LENGTH];
-    char output_prefix[MAX_PATH_LENGTH] = "pars";  // Default output prefix
-    char output_dir[MAX_PATH_LENGTH];
-    if (argc == 0) {
-        fprintf(stderr, "Error: Failed to provide Input file Name\n");
-        perror("Reason");
-        exit(EXIT_FAILURE);
-    }
-    //strcpy(file_path, ".\\example\\basic_radiator\\basic_radiator.out");
-    if (argc > 1) {
-        strncpy(file_path, argv[1], sizeof(file_path) - 1);
-        file_path[sizeof(file_path) - 1] = '\0';
-    } 
-
-    // Use second argument as prefix if provided
-    if (argc > 2) {
-        strncpy(output_prefix, argv[2], sizeof(output_prefix) - 1);
-        output_prefix[sizeof(output_prefix) - 1] = '\0';
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <input file> [-o <output name or path>] [-c]\n", argv[0]);
+        return EXIT_FAILURE;
     }
 
-    // Extract the directory path from the input file
-    get_directory_path(file_path, output_dir);
+    char input_file[MAX_PATH_LENGTH];
+    char output_prefix[MAX_PATH_LENGTH] = "pars";  // Default output name
+    char output_dir[MAX_PATH_LENGTH] = "./";  // Default output directory (current directory)
+    int coupled = 0;  // Default: output is NOT coupled to input location
 
-    // Create output file paths in the same directory as the input file
+    strncpy(input_file, argv[1], sizeof(input_file) - 1);
+    input_file[sizeof(input_file) - 1] = '\0';
+
+    // Parse optional arguments
+    for (int i = 2; i < argc; i++) {
+        if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
+            strncpy(output_prefix, argv[i + 1], sizeof(output_prefix) - 1);
+            output_prefix[sizeof(output_prefix) - 1] = '\0';
+            i++;  // Skip next argument since it's the output name/path
+        } else if (strcmp(argv[i], "-c") == 0) {
+            coupled = 1;
+        }
+    }
+
+    // Extract input file directory
+    char input_dir[MAX_PATH_LENGTH];
+    get_directory_path(input_file, input_dir);
+
+    // If -c is set, output files go to the input file directory
+    if (coupled) {
+        strncpy(output_dir, input_dir, sizeof(output_dir) - 1);
+        output_dir[sizeof(output_dir) - 1] = '\0';
+    }
+
+    // Check if output_prefix is a path (contains '/' or '\')
+    char resolved_output_path[MAX_PATH_LENGTH];
+    if (strchr(output_prefix, '/') || strchr(output_prefix, '\\')) {
+        get_directory_path(output_prefix, output_dir);
+        char* base_name = strrchr(output_prefix, '/');  // Unix/Linux/macOS
+        #ifdef _WIN32
+            base_name = strrchr(output_prefix, '\\');  // Windows
+        #endif
+        if (base_name) {
+            base_name++;  // Move past the last '/'
+            memmove(output_prefix, base_name, strlen(base_name) + 1);  // Update prefix
+        }
+    }
+
+    // Resolve relative paths properly
+    resolve_path(output_dir, output_prefix, resolved_output_path);
+
+    // Construct output file names
     char output_e_file[MAX_PATH_LENGTH], output_h_file[MAX_PATH_LENGTH];
-    snprintf(output_e_file, sizeof(output_e_file), "%s%s_e.dat", output_dir, output_prefix);
-    snprintf(output_h_file, sizeof(output_h_file), "%s%s_h.dat", output_dir, output_prefix);
+    snprintf(output_e_file, sizeof(output_e_file), "%s_e.dat", resolved_output_path);
+    snprintf(output_h_file, sizeof(output_h_file), "%s_h.dat", resolved_output_path);
 
-    FILE* input = open_file(file_path, "r");
+    FILE* input = open_file(input_file, "r");
     FILE* output_e = open_file(output_e_file, "w");
     FILE* output_h = open_file(output_h_file, "w");
+
+    
 
     int num_angles = count_angles(input);
     if (num_angles == 0) {

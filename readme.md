@@ -13,6 +13,7 @@ This can be done by RP cards, here with a step size of 1 degree:
 *To use this just add it at the end of the NEC file before the `EN` card and in 4nec2 in the generate window, `F7`, select `Use Original File`*  
 *A basic example can be found in the [example](example) folder*
 
+**!! If the axis do not aligne properly the script will try to fix this by doing an internal transform. This can brake the phase information. So if it informs of a transform it is optimal to redo the simulation with the antenna rotated by 90 degrees !!**
 ## Usage of NEC2PHASEPAT:
 Compile [NEC2PHASEPAT.c](NEC2PHASEPAT.c) using `gcc`:
 
